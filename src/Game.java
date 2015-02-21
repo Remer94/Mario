@@ -1,8 +1,18 @@
-import java.awt.*;
-import java.awt.event.KeyEvent;
-import java.util.ArrayList;
-import java.awt.Rectangle;
 import game2D.*;
+import java.awt.*;
+import java.awt.Rectangle;
+import java.awt.event.KeyEvent;
+import java.awt.geom.Line2D;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Random;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javafx.scene.shape.Circle;
+import javax.imageio.ImageIO;
+import javax.sound.sampled.Line;
 
 // Game demonstrates how we can override the GameCore class
 // to create our own 'game'. We usually need to implement at
@@ -27,7 +37,7 @@ public class Game extends GameCore
         static int groundHeight = 352;
 
     float 	lift = 0.005f;
-    float	gravity = 0.0006f;
+    float	gravity = 0.0009f;
     
     // Game state flags
     boolean flapUp = false;
@@ -37,21 +47,48 @@ public class Game extends GameCore
     boolean directionRight = true;
     boolean noseColl = false;
     boolean feetColl = false;
+    boolean dead = false;
     
     // Game resources
     Animation landing;
-    
+    Animation coin;
+    Animation yoshiHatch;
+    Animation deadMario;
+    Animation heartAnim;
+    Animation marioYoshi;
+    Animation goomba;
     Sprite	player = null;
+    Sprite yoshiHatchSprite = null;
+    goomba goombaList;
     ArrayList<Sprite> clouds = new ArrayList<Sprite>();
+    Sprite coinSprite;
+    Sprite heartSprite;
+    
+    //Sound object
+    Sound bckSound;
+    
 
     TileMap tmap = new TileMap();	// Our tile map, note that we load it in init()
     Tile nearestTile;
     int tileWidth ;
     int tileHeight;
     int offset;
+    int offsetY;
     long total;         			// The score will be the total time elapsed since a crash
     int feetY;
     int feetX;
+    int feetPixX;
+    int feetPixY;
+    int bounce;
+    int crack;
+    int lives = 3;
+    Rectangle chest; 
+    BufferedImage bck;
+    BufferedImage heart;
+    int xo;
+    int yo;
+    
+    Collision colHandler;
 
     /**
 	 * The obligatory main method that creates
@@ -75,29 +112,57 @@ public class Game extends GameCore
     public void init()
     {         
         Sprite s;	// Temporary reference to a sprite
-
+            try 
+            {
+                bck = ImageIO.read(new File("maps/Bck.png"));
+                heart = ImageIO.read(new File("images/heart16.png"));
+            } 
+            catch (IOException ex) 
+            {
+                Logger.getLogger(Game.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            
+         //Load sound and play
+        bckSound = new Sound("sounds/Super_Mario_Bros.wav");
+       // bckSound.start();
+        
         // Load the tile map and print it out so we can check it is valid
         tmap.loadMap("maps", "map.txt");
         tileWidth = tmap.getTileWidth();
         tileHeight = tmap.getTileHeight();
         // Create a set of background sprites that we can 
         // rearrange to give the illusion of motion
-        
+   
+        heartAnim = new Animation();
+        heartAnim.loadAnimationFromSheet("images/heart16.png", 1,1, 1);
         landing = new Animation();
         landing.loadAnimationFromSheet("images/landbird.png", 5, 1, 60);
-        
+        yoshiHatch = new Animation();
+        yoshiHatch.loadAnimationFromSheet("images/yoshiEgg.png", 6 ,1,60);
+        deadMario = new Animation();
+        deadMario.loadAnimationFromSheet("images/marioDead.png", 1, 1,1);
+        marioYoshi = new Animation();
+        marioYoshi.loadAnimationFromSheet("images/marioYoshi.png", 5, 1, 100);
+       
+       
         // Initialise the player with an animation
-        player = new Sprite(landing);
+        player = new Sprite(landing,"mario");
         
+        goombaList = new goomba(1);
+        goombaList.addGoomba(96,320);
+        
+        coin = new Animation();
+        coin.loadAnimationFromSheet("images/coinRed.png",4, 1, 60);           
         // Load a single cloud animation
         Animation ca = new Animation();
         ca.addFrame(loadImage("images/cloud.png"), 1000);
         
+        colHandler = new Collision(tmap);
         // Create 3 clouds at random positions off the screen
         // to the right
         for (int c=0; c<3; c++)
         {
-        	s = new Sprite(ca);
+        	s = new Sprite(ca,"cloud");
         	s.setX(screenWidth + (int)(Math.random()*200.0f));
         	s.setY(30 + (int)(Math.random()*150.0f));
         	s.setVelocityX(-0.02f);
@@ -123,6 +188,8 @@ public class Game extends GameCore
         player.setY(groundHeight-player.getHeight()-30);
         player.setVelocityX(0);
         player.setVelocityY(0);
+        
+        //127
         player.show();
     }
     
@@ -136,18 +203,11 @@ public class Game extends GameCore
 
     	// First work out how much we need to shift the view 
     	// in order to see where the player is.
-        int xo = (int)(64-player.getX());
-        int yo = 0;
-       
+        xo = (int)(64-player.getX()*(2048/512));
+        yo = (int)(screenHeight-player.getHeight()-player.getY()-32);
+   
+        g.drawImage(bck, null,0,0);
 
-        // If relative, adjust the offset so that
-        // it is relative to the player
-
-        // ...?
-        
-        g.setColor(new Color(100,100,250,150));
-        g.fillRect(0, 0, getWidth(), getHeight());
-        
         // Apply offsets to sprites then draw them
         for (Sprite s: clouds)
         {
@@ -157,24 +217,37 @@ public class Game extends GameCore
 
         // Apply offsets to player and draw         
         player.setOffsets(xo, yo);
+        if(coinSprite != null) 
+        {
+            coinSprite.setOffsets(xo, yo); 
+            coinSprite.draw(g);
+        }
         
         player.drawTransformed(g);
-                
+        
+        if(yoshiHatchSprite!=null)
+        {
+          yoshiHatchSprite.setOffsets(xo, yo);
+          yoshiHatchSprite.draw(g);
+        }
+        if(heartSprite!=null)
+        {
+          heartSprite.setOffsets(xo+5, yo);
+          heartSprite.draw(g);
+        }
+        goombaList.offset(xo, yo);
+        goombaList.draw(g);
         // Apply offsets to tile map and draw  it
-        tmap.draw(g,xo,yo);    
+        tmap.draw(g,xo,yo); 
         // Show score and status information
-        String msg = String.format("Score: %d", total/100);
+        String msg = String.format("Score: %d", total);
         g.setColor(Color.red);
         g.drawString(msg, getWidth() - 80, 50);
-       
-        
-        /*g.drawRect((int)player.getX()+20,(int)player.getY()+12,5,5);
-        if(directionRight == false)
+        for(int i = 0;i<lives;i++)
         {
-            g.drawRect((int)player.getX()+20-player.getWidth()+5,(int)player.getY()+12,5,5);
-        }
-       g.drawRect((int)player.getX()+6,(int)player.getY()+player.getHeight()-3,7,5);*/
-         
+          g.drawImage(heart, null,getWidth()-48-(i*16),53);
+        }  
+       
     }
 
     /**
@@ -182,54 +255,80 @@ public class Game extends GameCore
      * 
      * @param elapsed The elapsed time between this call and the previous call of elapsed
      */    
+        @Override
     public void update(long elapsed)
     {
     	
         // Make adjustments to the speed of the sprite due to gravity
         player.setVelocityY(player.getVelocityY()+(gravity*elapsed));
-    	offset = (int)(64-player.getX());
-          
+        if(lives == 0)dead=true;
+        if(coinSprite != null)
+        {
+            coinSprite.setVelocityY(coinSprite.getVelocityY()+(gravity*elapsed));
+            coinSprite.update(elapsed);
+        }
         
-        if(flapRight && inAir == false) // Do not allow movement mid jump
+        
+    	offset = (int)(64-player.getX()*(2048/512));
+        if(player.getDirectionRight() && player.getInAir() == false) // Do not allow movement mid jump
         {           
           player.playAnimation();
-          player.setVelocityX(0.04f);
+          player.setVelocityX(0.02f);
           player.setAnimationSpeed(1.0f);
-          flapRight = true;
+          player.setDirectionRight(true);
         }         
-       	if(flapLeft && inAir == false)
+       	if(player.getDirectionLeft() && player.getInAir() == false)
         {
             
            player.playAnimation();
-           player.setVelocityX(-0.04f);
+           player.setVelocityX(-0.02f);
            player.setAnimationSpeed(1.0f);
-           flapRight = false;
+           player.setDirectionRight(false);
         } 
-        if(flapLeft == false && flapRight == false && inAir == false)
+        if(!player.getDirectionLeft() && !player.getDirectionRight() && player.getInAir() == false)
         {
             player.setVelocityX(0.0f);
             player.pauseAnimationAtFrame(2);
         }
-       	if (flapUp) 
-       	{      		
-       		player.setVelocityY(-0.15f);                                 
+       	if (player.getDirectionUp()) 
+       	{     
+            System.out.println("up");
+            player.setVelocityY(-0.1f);                                 
        	}
-        
-          
-           
-          
-           
+  
        	for (Sprite s: clouds)
        		s.update(elapsed);
        	
         // Now update the sprites animation and position
         player.update(elapsed);
-       // update nearest tiles
-         
+        goombaList.update(elapsed);
+        colHandler.colUpdate(offset, yo);
+        if(yoshiHatchSprite!=null)
+        {
+            yoshiHatchSprite.update(elapsed);
+            yoshiHatchSprite.setVelocityY(yoshiHatchSprite.getVelocityY()+(gravity*elapsed));
+        }
+        if(heartSprite!=null)
+        {
+            heartSprite.update(elapsed);
+            heartSprite.setVelocityY(heartSprite.getVelocityY()+(gravity*elapsed));
+        }
+        tmap.update(elapsed);
+        // Then check for any collisions if alive
+        if(!dead)handleTileMapCollisions(player,elapsed);
+        else if(lives == 0) 
+        {
             
-         
-        // Then check for any collisions that may have occurred
-        handleTileMapCollisions(player,elapsed);
+            Sound s = new Sound("sounds/gameover.wav");
+           // s.start();
+//                bckSound.pause();
+           
+            player.setAnimation(deadMario);
+            player.setVelocityY(-0.6f);
+            player.setVelocityX(0);
+            lives--;
+        }
+        
          	
     }
     
@@ -246,106 +345,90 @@ public class Game extends GameCore
     	// This method should check actual tile map collisions. For
     	// now it just checks if the player has gone off the bottom
     	// of the tile map.
-       
-       
-         
-        if (s.getY() + player.getHeight()> groundHeight+1)
+
+        if ((s.getY() + player.getHeight()-yo)> groundHeight)
         {
-            
         	// Put the player back on the map
         	s.setY(groundHeight - s.getHeight());
-        	inAir = false; 
+                s.setVelocityY(-0.01f);
+        	player.setInAir(false);
         	
-        }  
-        sideCollision(s,elapsed);
-         feetCollision(s); 
-       
-        if(s.getX()<10)
+        } 
+        char holder = colHandler.feetCollision(s,elapsed);
+        if(holder=='f')
         {
-          s.setX(10);
+            lives--; 
+        }
+        else if(holder == 'c')
+        {
+          total++;   
+        }
+        
+        if(colHandler.headCollision(s,elapsed)=='m')mysteryBox((int)player.getX(),(int)player.getY(),elapsed);
+        if(colHandler.sideCollision(s,elapsed)=='c')total++;
+        else
+        {
+            colHandler.backHeadCollision(s,elapsed);
+        }
+        
+
+        if(coinSprite != null)
+        {  
+          colHandler.coinCollision(coinSprite,elapsed);  
+           if(boundingBoxCollision(s,coinSprite,elapsed))
+           {
+               coinSprite = null;
+               total=total+20;
+               Sound coinCollect = new Sound("sounds/smb_coin.wav");
+              // coinCollect.start();
+           }       
         }
         
         
-                     
-        
-        // This will check for collision with feet
         
         
-       
-    }
-   
-    public void feetCollision(Sprite s)
-    {     
         
-        feetX = Math.floorDiv(((int)s.getX()-17-offset),tileWidth)+1; 
-        feetY = Math.floorDiv(((int)(s.getY()+s.getHeight())),tileHeight);
-        Tile tileFeet = tmap.getTile(feetX, feetY);
-        System.out.println("feet tile "+feetX+" , "+(feetY)+" "+tmap.getTileChar(feetX, feetY));
-       // System.out.println(s.getHeight());    
-        if(tileFeet.getCharacter() == 'p')
-        {
-            int newGroundHeight = tileFeet.getYC();
-            if (s.getY() + player.getHeight()>newGroundHeight)
-                {            
-        	   // Put the player back on the map    
-                    //System.out.println("!!!");
-                    s.setY(newGroundHeight - s.getHeight());
-                    s.setVelocityY(-0.0006f);
-                    inAir = false;        	
-                 }           
+        
+        if(yoshiHatchSprite != null)
+        {  
+           colHandler.coinCollision(yoshiHatchSprite,elapsed);  
           
-        }      
+              if(yoshiHatchSprite.getAnimation().getFrameIndex()==5)
+              {
+                  yoshiHatchSprite.setType("yoshi");
+                 if(boundingBoxCollision(s,yoshiHatchSprite,elapsed))
+                     {
+                         yoshiHatchSprite=null;
+                         player.setAnimation(marioYoshi);
+                     }
+         
+              }
+              else if(boundingBoxCollision(s,yoshiHatchSprite,elapsed))
+              {
+                 yoshiHatchSprite.getAnimation().setLoop(false);
+                 yoshiHatchSprite.playAnimation();  
+              } 
+        }
         
-         // System.out.println(s.getVelocityY());
+        
+       if(heartSprite != null)
+        {  
+           colHandler.coinCollision(heartSprite,elapsed);  
+           if(boundingBoxCollision(s,heartSprite,elapsed))
+           {
+               Sound sound = new Sound("sounds/life.wav");
+               //sound.start();
+               heartSprite = null;  
+               lives++;
+           }       
+        }
+
     }
-    public void sideCollision(Sprite s,long elapsed)
-    {
-        
-        int noseX;
-        int noseY = Math.floorDiv((int)(s.getY()+12),tileHeight);
-        
-        if(noseY<feetY)
-        {
-         // This checks for any collision with characters nose
-        if(flapRight == true)
-        {
-          noseX = Math.floorDiv((int)(s.getX()-offset),tileWidth)+1;
-        }
-        else
-        {
-          noseX = Math.floorDiv((int)(s.getX()-offset-player.getWidth()+5),tileWidth)+1;
-        }
-        
-        
-        Tile t = tmap.getTile(noseX, noseY);
-        
-        
-        if(t.getCharacter() == 'p' && flapRight == true)
-        {
-           
-          noseColl = true;
-          flapRight = false;
-         /// s.setX(t.getXC()-s.getWidth()+offset);
-          s.setVelocityX(-0.04f);  
-          s.update(elapsed);
-        }
-        else if (t.getCharacter() == 'p'&& flapRight == false )
-        {
-        
-          noseColl = true;
-          flapLeft= false;
-          //s.setX(t.getXC()+offset+tileWidth);
-          s.setVelocityX(0.04f);   
-          s.update(elapsed);
-        }      
-        else
-        {
-          noseColl = false;   
-        }
-        }
-        
-        
-    }
+   // possible need to chest collision for in air colls  
+   
+    
+    
+    
     
      
     /**
@@ -360,48 +443,165 @@ public class Game extends GameCore
     	
     	if (key == KeyEvent.VK_ESCAPE) stop();
     	
-    	if (key == KeyEvent.VK_UP && inAir==false && flapUp != true  )
+    	if (key == KeyEvent.VK_UP && player.getInAir()==false && player.getDirectionUp() != true  )
         {      
           //  System.out.print("Hello");
-            inAir = true;
-            flapUp = true;
+            Sound s = new Sound("sounds/jump.wav");
+    	  //  s.start();
+            player.setInAir(true);   
+            player.setDirectionUp(true);
         }
         else
         {
-            flapUp = false;
+            player.setDirectionUp(false);
         }
     
         
-        if(key == KeyEvent.VK_RIGHT && flapRight != true && noseColl == false && inAir == false )
+        if(key == KeyEvent.VK_RIGHT && player.getDirectionRight() != true && noseColl == false && player.getInAir() == false )
         {    
             
             player.setInverse(false);
-            flapRight = true;
+            player.setDirectionRight(true);
            
         }
         
-        if(key == KeyEvent.VK_LEFT  && flapLeft != true && inAir == false ) 
+        if(key == KeyEvent.VK_LEFT  && player.getDirectionLeft() != true && player.getInAir() == false ) 
         {
             
             player.setInverse(true);
-            flapLeft = true;           
+            player.setDirectionLeft(true);         
         }
-        
-    	   	
-    	if (key == KeyEvent.VK_S)
-    	{
-    		// Example of playing a sound as a thread
-    		Sound s = new Sound("sounds/caw.wav");
-    		s.start();
-    	}
         e.consume();
     }
-
-    public boolean boundingBoxCollision(Sprite s1, Sprite s2)
+/*
+    *
+    * Function determines type of sprite
+    *
+    *
+    * s1 is always mario
+    * s2 must be determined
+    *
+    * Detects collision between rectange and circe by splitting a rectange into 4 lines
+    * if a the centre of the circle is less the the radius from any of the four lines
+    * there has been a collision
+    *
+    */
+    public boolean boundingBoxCollision(Sprite s1, Sprite s2,long elapsed)
     {
-        
-        
+        Circle coinCol; 
+        Rectangle mario = new Rectangle((int)s1.getX()+3,(int)s1.getY()-yo,s1.getWidth()-7,s1.getHeight());
+        Line2D marioBounds[] = rectToLines(mario);
+        String type = s2.getType();
+        switch(type)
+        {
+            case "coin":
+                coinCol = new Circle((int)s2.getX()+8+offset,(int)s2.getY()+8,7);
+                return(lineChecker(marioBounds,coinCol));
+            case "heart":  
+                coinCol = new Circle((int)s2.getX()+8+offset,(int)s2.getY()+8,7);
+                return(lineChecker(marioBounds,coinCol));
+            case "yoshiHatch":
+                coinCol = new Circle((int)s2.getX()+5+offset,(int)s2.getY()+20,7);
+                return(yoshiHatchCol(marioBounds,coinCol,elapsed));
+            case "yoshi":
+                Rectangle yoshi = new Rectangle((int)s2.getX()+offset,(int)s2.getY(),s2.getWidth()-10,s2.getHeight()-5);
+                return((yoshiCol(s1,yoshi,elapsed)));
+              
+        }
+   
     	return false;   	
+    }
+    /*
+    * To determine if mario has collide with the circle Egg
+    * and to handle the collision
+    */
+    public boolean yoshiHatchCol(Line2D[] marioBounds,Circle circleCol,long elapsed)
+    {
+        for(int i = 0;i<4;i++)
+             {
+                 if(marioBounds[i].ptSegDist(circleCol.getCenterX(),circleCol.getCenterY())<7 )
+                 {               
+                     if(i==1)
+                     {
+                         player.setCol(true);
+                         player.setDirectionRight(false);
+                         player.setVelocityX(-0.03f);  
+                         player.update(elapsed);
+                          
+                     }
+                     else if(i==2)
+                     {
+                         player.setVelocityY(-0.1f);
+                         player.update(elapsed);
+                     }
+                     else if(i==3)
+                     {
+                         player.setCol(true);
+                         player.setDirectionLeft(true);                       
+                         player.setVelocityX(0.03f);   
+                         player.update(elapsed);
+                        
+                     }
+                     return true;
+                     }
+                    
+                 }
+               return false;  
+               
+                   
+    }
+    // To determine if mario has collided with yoshi
+    // Mario can only ride if he jumps on on collides with the left
+    public boolean yoshiCol(Sprite s1,Rectangle r,long elapsed)
+    {
+        Rectangle mario = new Rectangle((int)s1.getX()-3,(int)s1.getY()-yo,s1.getWidth()-7,s1.getHeight()-5);
+        if(mario.intersects(r))
+        {  
+           if(player.getDirectionRight() && s1.getX()<r.getX())
+           {
+                return true;
+           }
+           else if(player.getDirectionLeft())
+           {
+                player.setCol(true);
+                player.setDirectionLeft(false);
+               // s.setX(t.getXC()+offset+tileWidth);
+                player.setVelocityX(0.03f);   
+                player.update(elapsed);
+                
+           }
+           else if(player.getInAir())
+           {
+              return true;
+           }
+          
+        }
+        return false;
+        
+    }
+    // Takes 4 lines off a rectangle and determines the nearest point on 
+    // each line to the centre of the given circle if the distance is less
+    // than the diametre than the rectangle must be colliding with the circle
+    public boolean lineChecker(Line2D[] marioBounds,Circle circleCol)
+    {
+       for(int i = 0;i<4;i++)
+       {
+           if(marioBounds[i].ptSegDist(circleCol.getCenterX(),circleCol.getCenterY())<7 )
+            {               
+                return true;
+            }
+       }
+        return false;   
+    }
+    public Line2D[] rectToLines(Rectangle r)
+    {
+        Line2D[] lines = new Line2D.Double[4];
+        lines[0]= new Line2D.Double(r.getX(),r.getY(), r.getX()+r.getWidth(),r.getY());
+        lines[1]= new Line2D.Double(r.getX()+r.getWidth(),r.getY(),r.getX()+r.getWidth(),r.getY()+r.getHeight());
+        lines[2] = new Line2D.Double(r.getX()+r.getWidth(),r.getY()+r.getHeight(),r.getX(),r.getY()+r.getHeight());
+        lines[3] = new Line2D.Double(r.getX(),r.getY()+r.getHeight(),r.getX(),r.getY());
+        
+        return lines;
     }
 
 
@@ -415,10 +615,46 @@ public class Game extends GameCore
 		switch (key)
 		{
 			case KeyEvent.VK_ESCAPE : stop(); break;
-			case KeyEvent.VK_UP     : flapUp = false; break;
-                        case KeyEvent.VK_RIGHT : flapRight = false;break;
-                        case KeyEvent.VK_LEFT : flapLeft = false;break;
+			case KeyEvent.VK_UP     : player.setDirectionUp(false); break;
+                        case KeyEvent.VK_RIGHT : player.setDirectionRight(false);break;
+                        case KeyEvent.VK_LEFT : player.setDirectionLeft(false);break;
 			default :  break;
 		}
 	}
+  
+        public void mysteryBox(int x,int y,long elapsed)
+        {
+            Sprite[] boxSprites = new Sprite[3];            
+          coinSprite = new Sprite(coin,"coin");
+          coinSprite.setAnimationSpeed(0.5f);
+          boxSprites[0] = coinSprite;
+          heartSprite = new Sprite(heartAnim,"heart");
+          boxSprites[1] = heartSprite;
+          yoshiHatchSprite = new Sprite(yoshiHatch,"yoshiHatch");
+           yoshiHatchSprite.pauseAnimation();
+
+          boxSprites[2] = yoshiHatchSprite;
+          
+          Random randomGenerator = new Random();
+          
+          mysteryAnimation(x,y,elapsed,boxSprites[randomGenerator.nextInt(3)]);
+            
+        }
+    public void mysteryAnimation(int x,int y,long elapsed,Sprite sprite)
+    {
+        
+        
+        sprite.setX(x);
+        sprite.setY(y);
+        sprite.setAnimationFrame(0);
+        sprite.show();
+        sprite.setVelocityY(-0.5f);
+   
+        
+    }
+    
+ 
+    
+        
+        
 }

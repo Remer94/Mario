@@ -10,6 +10,7 @@ import java.io.*;
 
 
 
+
 /**
  * TileMap enables you to load a character based tile map from a text file. An
  * example of the format for such a text file is given below:
@@ -43,11 +44,31 @@ public class TileMap
 	private int mapHeight=0;	// The maps height in tiles
 	private int tileWidth=0;	// The width of a tile in pixels
 	private int tileHeight=0;	// The height of a tile in pixels
-	
+	private Animation coin = new Animation();
+        private Animation fire = new Animation();
+        private Animation mysteryBox = new Animation();
+        
+        
 	// imagemap contains a set of character to image mappings for
 	// quick loop up of the image associated with a given character.
 	private Map<String,Image> imagemap = new HashMap<String,Image>();
-	
+	public  TileMap()
+        {            
+            
+            coin.loadAnimationFromSheet("images/coin.png",4, 1, 60);
+            coin.setAnimationSpeed(0.5f);        
+            fire.loadAnimationFromSheet("images/fire.png", 5, 1, 60);
+             fire.setAnimationSpeed(0.5f);  
+             mysteryBox.loadAnimationFromSheet("images/mysteryBox.png", 4, 1, 60);
+             mysteryBox.setAnimationSpeed(0.3f);
+        }
+        public void update(long elapsed)
+        {
+          coin.update(elapsed);
+          fire.update(elapsed);
+          mysteryBox.update(elapsed);
+          
+        }
 	/**
 	 * @return The map height in tiles
 	 */
@@ -335,21 +356,47 @@ public class TileMap
 		Image img=null;
 		Rectangle rect = (Rectangle)g.getClip();
 		int xc,yc;
-		
+		Tile t;
 		for (int r=0; r<mapHeight; r++)
 		{
 			for (int c=0; c<mapWidth; c++)
 			{
+                                t = this.getTile(c,r);
 				img = getTileImage(c, r);
+                                
+                                
 				if (img == null) continue;
 				xc = xoff + c*tileWidth;
 				yc = yoff + r*tileHeight;
+                                char b = this.getTile(c,r).getCharacter();
+                                
 				
 				// Only draw the tile if it is on screen, otherwise go back round the loop
 				if (xc+tileWidth < 0 || xc >= rect.x + rect.width) continue;
 				if (yc+tileHeight < 0 || yc >= rect.y + rect.height) continue;
-				g.drawImage(img,xc,yc,null);
+				
+                                
+                                  
+                                switch(t.getCharacter())
+                                {
+                                    case 'c':img = coin.getImage();
+                                        break;
+                                    case 'f': img = fire.getImage();
+                                        break;
+                                    case 'x':this.setTileChar('z', c,r);
+                                        break;
+                                    case 'z':this.setTileChar('.', c,r);
+                                        break;
+                                    case 'm':img=mysteryBox.getImage();
+                                        break;
+                                    
+                                    
+                                }
+                                    g.drawImage(img,xc,yc,null);
+                                
 			}
 		}		
 	}
+
+       
 }

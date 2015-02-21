@@ -150,6 +150,10 @@ public class Animation {
     	AnimFrame frame = frames.get(i);
     	return frame.image;
     }
+    public int getFrameIndex()
+    { 
+      return  currFrameIndex;  
+    }
     
     /**
      * Tell an animation to loop continuously or not.

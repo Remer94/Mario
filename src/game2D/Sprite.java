@@ -44,6 +44,18 @@ public class Sprite {
     private int xoff=0;
     private int yoff=0;
     private Image Image;
+    private int tileX;
+    private int tileY;
+    
+    
+    //To determine what type of collision shoudl be used
+    private String type;
+    
+    private boolean directionRight;
+    private boolean directionLeft;
+    private boolean directionUp;
+    private boolean inAir;
+    private boolean col;
 
     /**
      *  Creates a new Sprite object with the specified Animation.
@@ -51,9 +63,10 @@ public class Sprite {
      * @param a The animation to use for the sprite.
      * 
      */
-    public Sprite(Animation anim)
+    public Sprite(Animation anim,String type)
     {
         this.anim = anim;
+        this.type = type;
          //width = anim.getImage().getWidth(null);
        //  height = anim.getImage().getHeight(null);
         render = false;
@@ -339,12 +352,12 @@ public class Sprite {
 		// Apply transform to the image and draw it           
                  if(inverse)
                  {
-                   g.drawImage(getImage(),(int)(x+6)+this.getWidth(),((int)y), (int) -width, (int)height, null);
+                   g.drawImage(getImage(),(int)(x)+this.getWidth(),((int)y), (int) -width, (int)height, null);
                    
                  }
                  else
                  {
-                   g.drawImage(getImage(),(int)(x+6),((int)y), (int) width, (int)height, null);
+                   g.drawImage(getImage(),(int)(x),((int)y), (int) width, (int)height, null);
 
                  }
                  
@@ -352,10 +365,6 @@ public class Sprite {
                     
                  
                 
-    }
-    public void drawInverse(Graphics2D g)
-    {
-        
     }
 
 
@@ -384,6 +393,71 @@ public class Sprite {
     	xoff = x;
     	yoff = y;
     }
+    public String getType()
+    {
+        return type;
+    }
+    public void setType(String type)
+    {
+     this.type= type;   
+    }
+    public void setDirectionRight(boolean direction)
+    {
+        directionRight = direction;
+    }
+    public void setDirectionLeft(boolean direction)
+    {
+        directionLeft = direction;
+    }
+    public boolean getDirectionRight()
+    {
+        return directionRight;
+    }
+    public boolean getDirectionLeft()
+    {
+        return directionLeft;
+    }
+    public boolean getDirectionUp()
+    {
+        return directionUp;
+    }
+    public void setDirectionUp(boolean direction)
+    {
+        directionUp = direction;
+    }
+    public boolean getInAir()
+    {
+        return inAir;
+    }
+    public void setInAir(boolean direction)
+    {
+        inAir = direction;
+    }
+    public boolean getCol()
+    {
+        return col;
+    }
+    public void setCol(boolean direction)
+    {
+        col = direction;
+    }
+    public int getTileX()
+    {
+        return tileX;
+    }
+    public void setTileX(int tileX)
+    {
+        this.tileX = tileX;
+    }
+    public int getTileY()
+    {
+        return tileY;
+    }
+    public void setTileY(int tileY)
+    {
+        this.tileY = tileY;
+    }
+    
     
 
 }
