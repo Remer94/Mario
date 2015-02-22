@@ -6,8 +6,6 @@
 // Note that the referenced files should be in the same directory as the
 // tile map.
 #p=pipe.png
-#t=pipetop.png
-#b=pipebot.png
 #g=ground.png
 #c=pipe.png
 #f=fire.png

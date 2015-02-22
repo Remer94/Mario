@@ -363,8 +363,17 @@ public class Game extends GameCore
         {
           total++;   
         }
+        Tile c = colHandler.headCollision(s,elapsed);
+        if(c != null)
+        {
+            if(c.getCharacter()=='m')
+            {      
+                 System.out.println(player.getX()+"-"+player.getY());
+                 mysteryBox(c,elapsed);
+            }
+        }
+        tmap.setTileChar('b',s.getTileX(), s.getTileY());
         
-        if(colHandler.headCollision(s,elapsed)=='m')mysteryBox((int)player.getX(),(int)player.getY(),elapsed);
         if(colHandler.sideCollision(s,elapsed)=='c')total++;
         else
         {
@@ -374,6 +383,7 @@ public class Game extends GameCore
 
         if(coinSprite != null)
         {  
+          System.out.println(coinSprite.getX()+"-"+coinSprite.getY());
           colHandler.coinCollision(coinSprite,elapsed);  
            if(boundingBoxCollision(s,coinSprite,elapsed))
            {
@@ -384,13 +394,9 @@ public class Game extends GameCore
            }       
         }
         
-        
-        
-        
-        
-        
         if(yoshiHatchSprite != null)
         {  
+           
            colHandler.coinCollision(yoshiHatchSprite,elapsed);  
           
               if(yoshiHatchSprite.getAnimation().getFrameIndex()==5)
@@ -413,6 +419,7 @@ public class Game extends GameCore
         
        if(heartSprite != null)
         {  
+           
            colHandler.coinCollision(heartSprite,elapsed);  
            if(boundingBoxCollision(s,heartSprite,elapsed))
            {
@@ -622,9 +629,9 @@ public class Game extends GameCore
 		}
 	}
   
-        public void mysteryBox(int x,int y,long elapsed)
+        public void mysteryBox(Tile t,long elapsed)
         {
-            Sprite[] boxSprites = new Sprite[3];            
+          Sprite[] boxSprites = new Sprite[3];            
           coinSprite = new Sprite(coin,"coin");
           coinSprite.setAnimationSpeed(0.5f);
           boxSprites[0] = coinSprite;
@@ -637,20 +644,17 @@ public class Game extends GameCore
           
           Random randomGenerator = new Random();
           
-          mysteryAnimation(x,y,elapsed,boxSprites[randomGenerator.nextInt(3)]);
+          mysteryAnimation(t.getXC(),t.getYC(),elapsed,coinSprite);
             
         }
     public void mysteryAnimation(int x,int y,long elapsed,Sprite sprite)
     {
-        
-        
         sprite.setX(x);
         sprite.setY(y);
         sprite.setAnimationFrame(0);
         sprite.show();
         sprite.setVelocityY(-0.5f);
-   
-        
+  
     }
     
  

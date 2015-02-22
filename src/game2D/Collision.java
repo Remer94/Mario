@@ -54,7 +54,6 @@ public class Collision
         else if(tileFeet != null && (tileFeet.getCharacter() == 'p' || tileFeet.getCharacter() == 'm' ||tileFeet.getCharacter() == 'b' &&  (s.getY()-s.getHeight()-yo) <= groundHeight))
         {          
             int newGroundHeight = tileFeet.getYC();
-            System.out.println("feet tile "+feetX+" , "+(feetY)+" "+tmap.getTileChar(feetX, feetY));
 
             if ((s.getY() + s.getHeight()-yo)>newGroundHeight)
                 {            
@@ -155,7 +154,7 @@ public class Collision
         return '.';
         
     }
-    public char headCollision(Sprite s,long elapsed)
+    public Tile headCollision(Sprite s,long elapsed)
     {
         
         int noseX;
@@ -180,28 +179,27 @@ public class Collision
      //   System.out.println(noseX+" "+noseY);
         
         if(noseY<=0||t.getCharacter() == 'p'||t.getCharacter() == 'b')
-        {
-               System.out.println("head");
+        {               
                 Sound sound = new Sound("sounds/bump.wav");
     	//	sound.start();
                 s.setDirectionUp(false);
                 s.setY(t.getYC()+32+yo);
                 s.setVelocityY(0.004f);   
                 s.update(elapsed);
-                return 'p';
+                return t;
            
         }    
         else if(t.getCharacter()=='m'&& s.getType().equals("mario"))
-        {
+        {           
             s.setTileX(noseX);
             s.setTileY(noseY);
-            System.out.println("head");
+            System.out.println("boom");
             s.setDirectionUp(false);
             s.setY(t.getYC()+33+yo);
             s.setVelocityY(0.04f);     
             s.update(elapsed);   
-            tmap.setTileChar('b',noseX,noseY);
-            return 'm';
+            //tmap.setTileChar('b',noseX,noseY);
+            return t;
             
         }
         if(t.getCharacter() == 'c' && s.getType().equals("mario"))
@@ -210,12 +208,12 @@ public class Collision
           Sound coinCollect = new Sound("sounds/smb_coin.wav");
          // coinCollect.start();
           tmap.setTileChar('x', noseX, noseY);
-          return'c';
+          return t;
         }
        
        
         }
-        return '.';
+        return null;
         
     }
      public void backHeadCollision(Sprite s,long elapsed)
